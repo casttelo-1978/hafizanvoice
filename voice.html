@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#075e63">
+<title>Rakaman Ucapan - Hafizzan & Aishah</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(145deg,#064f54,#087f83,#15999d);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:18px}
+.wrap{width:min(100%,430px)}
+.card{background:#fff;color:#214b4d;border-radius:28px;padding:26px 20px 22px;box-shadow:0 20px 55px rgba(0,0,0,.22);text-align:center}
+.kicker{font-size:10px;letter-spacing:3px;color:#c9a45c;font-weight:800}
+h1{font:400 32px Georgia,serif;color:#006d73;margin:8px 0 5px}
+.sub{font-size:13px;line-height:1.6;color:#668486}
+.timer{font:700 44px Georgia,serif;color:#006d73;margin:24px 0 14px}
+.status{min-height:44px;background:#f3f9f8;border:1px solid #dcebea;border-radius:14px;padding:12px;font-size:12px;line-height:1.5}
+.buttons{display:grid;gap:10px;margin-top:16px}
+button{border:0;border-radius:15px;padding:14px 16px;font-weight:800;font-size:14px;cursor:pointer}
+#recordBtn{background:#006d73;color:#fff}
+#recordBtn.recording{background:#a84c5d}
+#useBtn{background:#c9a45c;color:#fff;display:none}
+#cancelBtn{background:#eef6f5;color:#286062}
+audio{width:100%;margin-top:16px;display:none}
+.done{display:none;margin-top:15px;padding:13px;border-radius:14px;background:#edf8f3;border:1px solid #cde9dc;color:#39715a;font-size:12px}
+.note{margin-top:14px;font-size:10px;line-height:1.55;color:#718889}
+.note strong{color:#006d73}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+<div class="kicker">HAFIZZAN & AISHAH</div>
+<h1>Ucapan Suara</h1>
+<div class="sub">Rakam ucapan ringkas untuk pasangan pengantin.</div>
+<div class="timer" id="timer">00:00</div>
+<div class="status" id="status">Tekan <strong>RAKAM UCAPAN</strong> dan benarkan akses mikrofon apabila browser bertanya.</div>
+<div class="buttons">
+<button id="recordBtn" type="button">🎙️ RAKAM UCAPAN</button>
+<button id="useBtn" type="button">✓ GUNA RAKAMAN INI</button>
+<button id="cancelBtn" type="button">BATAL</button>
+</div>
+<audio id="audioPreview" controls></audio>
+<div class="done" id="done">Rakaman berjaya dihantar kembali ke Guestbook.</div>
+<div class="note">🔒 Mikrofon hanya digunakan selepas anda menekan butang rakam. Rakaman maksimum <strong>60 saat</strong>.</div>
+</div></div>
+
+<script>
+const params=new URLSearchParams(location.search);
+const returnUrl=params.get("return")||"";
+let recorder=null,stream=null,chunks=[],audioDataUrl="",timerId=null,seconds=0;
+const MAX_SECONDS=60;
+const $=id=>document.getElementById(id);
+
+function setStatus(t){$("status").innerHTML=t}
+function formatTime(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+function cleanupStream(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+function stopTimer(){if(timerId){clearInterval(timerId);timerId=null}}
+function resetTimer(){stopTimer();seconds=0;$("timer").textContent="00:00"}
+
+function getMimeType(){
+  const types=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus"];
+  for(const t of types){if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t))return t}
+  return "";
+}
+
+async function startRecording(){
+  if(!returnUrl){setStatus("Pautan kembali tidak sah. Sila buka recorder melalui butang RAKAM UCAPAN dalam Guestbook.");return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setStatus("Browser ini tidak menyokong rakaman mikrofon. Cuba Chrome atau Safari versi terkini.");return}
+  if(!window.MediaRecorder){setStatus("Browser ini tidak menyokong rakaman audio. Cuba Chrome atau Safari versi terkini.");return}
+
+  try{
+    setStatus("Meminta kebenaran mikrofon...");
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    const mimeType=getMimeType();
+    recorder=mimeType?new MediaRecorder(stream,{mimeType}):new MediaRecorder(stream);
+    chunks=[];resetTimer();
+
+    recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+    recorder.onstop=()=>{
+      stopTimer();cleanupStream();
+      const type=recorder.mimeType||mimeType||"audio/webm";
+      const blob=new Blob(chunks,{type});
+      if(!blob.size){setStatus("Rakaman kosong. Sila cuba rakam semula.");return}
+      const reader=new FileReader();
+      reader.onload=()=>{
+        audioDataUrl=reader.result;
+        $("audioPreview").src=audioDataUrl;
+        $("audioPreview").style.display="block";
+        $("useBtn").style.display="block";
+        $("recordBtn").textContent="🎙️ RAKAM SEMULA";
+        $("recordBtn").classList.remove("recording");
+        setStatus("Rakaman siap. Tekan <strong>GUNA RAKAMAN INI</strong> untuk kembali ke Guestbook.");
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    recorder.start(250);
+    $("recordBtn").classList.add("recording");
+    $("recordBtn").textContent="⏹️ HENTI RAKAMAN";
+    $("useBtn").style.display="none";
+    $("audioPreview").style.display="none";
+    setStatus("Sedang merakam... bercakap seperti biasa.");
+
+    timerId=setInterval(()=>{
+      seconds++;
+      $("timer").textContent=formatTime(seconds);
+      if(seconds>=MAX_SECONDS)stopRecording();
+    },1000);
+
+  }catch(err){
+    cleanupStream();resetTimer();
+    let msg="Mikrofon tidak dapat digunakan.";
+    if(err&&err.name==="NotAllowedError")msg="Akses mikrofon tidak dibenarkan. Tekan ikon 🔒 di sebelah alamat laman dan benarkan Microphone, kemudian cuba lagi.";
+    else if(err&&err.name==="NotFoundError")msg="Tiada mikrofon dikesan pada peranti ini.";
+    else if(err&&err.name==="NotReadableError")msg="Mikrofon sedang digunakan oleh aplikasi lain. Tutup aplikasi tersebut dan cuba lagi.";
+    setStatus(msg);
+    $("recordBtn").classList.remove("recording");
+    $("recordBtn").textContent="🎙️ RAKAM UCAPAN";
+  }
+}
+
+function stopRecording(){if(recorder&&recorder.state==="recording")recorder.stop()}
+
+function sendBack(){
+  if(!audioDataUrl){setStatus("Tiada rakaman untuk dihantar.");return}
+  if(window.opener&&!window.opener.closed){
+    window.opener.postMessage({type:"HAFIZZAN_AISHAH_VOICE",audioBase64:audioDataUrl},"*");
+    $("done").style.display="block";
+    $("useBtn").disabled=true;$("recordBtn").disabled=true;$("cancelBtn").disabled=true;
+    setStatus("Rakaman berjaya dihantar. Halaman ini boleh ditutup.");
+    setTimeout(()=>{try{window.close()}catch(e){}},800);
+  }else{
+    setStatus("Halaman Guestbook asal tidak dijumpai. Sila tutup halaman ini dan tekan RAKAM UCAPAN semula dari Guestbook.");
+  }
+}
+
+function cancel(){
+  if(recorder&&recorder.state==="recording"){try{recorder.stop()}catch(e){}}
+  cleanupStream();stopTimer();
+  if(window.opener&&!window.opener.closed)window.opener.postMessage({type:"HAFIZZAN_AISHAH_VOICE_CANCEL"},"*");
+  setTimeout(()=>{try{window.close()}catch(e){}},200);
+}
+
+$("recordBtn").onclick=()=>{if(recorder&&recorder.state==="recording")stopRecording();else startRecording()};
+$("useBtn").onclick=sendBack;
+$("cancelBtn").onclick=cancel;
+window.addEventListener("beforeunload",()=>{cleanupStream();stopTimer()});
+</script>
+</body>
+</html>
