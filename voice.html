@@ -123,14 +123,19 @@ function stopRecording(){if(recorder&&recorder.state==="recording")recorder.stop
 
 function sendBack(){
   if(!audioDataUrl){setStatus("Tiada rakaman untuk dihantar.");return}
-  if(window.opener&&!window.opener.closed){
-    window.opener.postMessage({type:"HAFIZZAN_AISHAH_VOICE",audioBase64:audioDataUrl},"*");
+  if(window.opener && !window.opener.closed){
+    window.opener.postMessage(
+      {type:"HAFIZZAN_AISHAH_VOICE",audioBase64:audioDataUrl},
+      "*"
+    );
     $("done").style.display="block";
-    $("useBtn").disabled=true;$("recordBtn").disabled=true;$("cancelBtn").disabled=true;
-    setStatus("Rakaman berjaya dihantar. Halaman ini boleh ditutup.");
+    $("useBtn").disabled=true;
+    $("recordBtn").disabled=true;
+    $("cancelBtn").disabled=true;
+    setStatus("Rakaman berjaya dihantar kembali ke Guestbook. Halaman ini boleh ditutup.");
     setTimeout(()=>{try{window.close()}catch(e){}},800);
   }else{
-    setStatus("Halaman Guestbook asal tidak dijumpai. Sila tutup halaman ini dan tekan RAKAM UCAPAN semula dari Guestbook.");
+    setStatus("Guestbook asal tidak dapat dihubungi. Sila kembali ke Guestbook dan tekan RAKAM UCAPAN semula.");
   }
 }
 
